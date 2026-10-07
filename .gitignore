@@ -20,3 +20,6 @@ backend/tests/fixtures/live/
 # Local presentation and submission materials
 docs/screenshots/
 docs/SUBMISSION_DRAFT.md
+
+# Keep project documentation local
+docs/
