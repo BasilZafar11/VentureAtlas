@@ -57,10 +57,11 @@ it('compares distinct results sharing a source URL without losing rows',()=>{
 });
 it('imports saved validation results and opens the pitch print workflow',()=>{
  localStorage.setItem(`venture-priorities-v1:${report.id}`,JSON.stringify([{id:'test',name:'Interview',assumption:'Demand exists',impact:5,uncertainty:4,cost:100,hours:2,currency:'INR',measure:'Five interested customers',result:'Two of five requested a trial'}]));
- const print=vi.spyOn(window,'print').mockImplementation(()=>{});
+ const originalTitle=document.title;
+ const print=vi.spyOn(window,'print').mockImplementation(()=>{expect(document.title).toBe(`${report.input.business_category} in ${report.input.city} · VentureAtlas pitch`)});
  render(<VenturePitch report={report}/>);fireEvent.click(screen.getByText('Import saved experiment results'));
  expect(screen.getByLabelText('Validation and uncertainties')).toHaveValue('Interview: Two of five requested a trial\nSuccess measure: Five interested customers');
- fireEvent.click(screen.getByText('Print or save pitch as PDF'));expect(print).toHaveBeenCalledOnce();
+ fireEvent.click(screen.getByText('Print or save pitch as PDF'));expect(print).toHaveBeenCalledOnce();expect(document.title).toBe(originalTitle);
 });
 
 it('exports a readable Markdown pitch with sample disclosure and references',()=>{

@@ -3,3 +3,14 @@
 .site-header .brand{flex-direction:column;align-items:flex-start;gap:3px}.pitch-preview section{margin-top:24px}.strategy-list article p{overflow-wrap:anywhere}
 
 .graph-diagram{overflow:auto;margin:20px 0}.graph-diagram svg{width:100%;min-width:560px;max-height:660px}.graph-diagram g[role=button]{cursor:pointer}.graph-diagram g:focus rect{stroke:#152c46;stroke-width:3}
+
+@media print {
+  body:has(#venture-pitch):not(:has(.report-panel[hidden] #venture-pitch)) { background:white!important; }
+  /* Keep only the visible pitch and its ancestors in the printed document. */
+  body:has(#venture-pitch):not(:has(.report-panel[hidden] #venture-pitch)) *:not(#venture-pitch):not(#venture-pitch *):not(:has(#venture-pitch)) { display:none!important; }
+  body:has(#venture-pitch):not(:has(.report-panel[hidden] #venture-pitch)) :has(#venture-pitch) { display:block!important; margin:0!important; padding:0!important; border:0!important; max-width:none!important; }
+  #venture-pitch { margin:0; padding:0; border:0; color:#183b66; overflow-wrap:anywhere; }
+  #venture-pitch section { break-inside:auto; margin-top:18px; }
+  #venture-pitch h1,#venture-pitch h2 { break-after:avoid; }
+  #venture-pitch li { break-inside:avoid; }
+}
