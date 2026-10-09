@@ -19,6 +19,6 @@ def test_migration_roundtrip(monkeypatch):
     monkeypatch.setattr(session,'engine',db)
     config=Config('alembic.ini')
     command.upgrade(config,'head')
-    assert set(inspect(db).get_table_names()) == {'alembic_version','analyses','competitors','signals','evidence', 'novelty_reports','novelty_usage','novelty_daily_budget','novelty_workspaces', 'venture_accounts','venture_sessions','venture_teams','research_states','groq_daily_budget'}
+    assert set(inspect(db).get_table_names()) == {'alembic_version','analyses','competitors','signals','evidence', 'novelty_reports','novelty_usage','novelty_daily_budget','novelty_workspaces', 'venture_accounts','venture_sessions','venture_teams','research_states','groq_daily_budget','serpapi_user_budget'}
     command.downgrade(config,'base')
     assert inspect(db).get_table_names()==['alembic_version']

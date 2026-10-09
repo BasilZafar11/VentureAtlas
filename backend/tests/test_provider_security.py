@@ -21,7 +21,7 @@ from app.provider_credentials import ProviderCredentials, credentials_for
 from app.search_budget import DailySearchLimit, claim_provider_attempt, claim_groq_attempt
 from app.serpapi_clients import base
 from app import search_budget
-from app.models.novelty import NoveltyDailyBudget, GroqDailyBudget
+from app.models.novelty import NoveltyDailyBudget, GroqDailyBudget, SerpApiUserBudget
 
 PERSONAL = 'dummy-personal-serpapi-key'
 HOSTED = 'dummy-hosted-serpapi-key'
@@ -34,12 +34,51 @@ def isolated_budget(monkeypatch, tmp_path):
                            connect_args={'check_same_thread': False, 'timeout': 30})
     NoveltyDailyBudget.__table__.create(engine)
     GroqDailyBudget.__table__.create(engine)
+    SerpApiUserBudget.__table__.create(engine)
     sessions = sessionmaker(engine)
     monkeypatch.setattr(search_budget, 'Session', sessions)
     monkeypatch.setattr(settings, 'hosted_serpapi_daily_budget', 20)
     monkeypatch.setattr(settings, 'hosted_serpapi_reserve', 0)
     yield engine, sessions
     engine.dispose()
+
+
+def test_user_allowances_are_independent_and_concurrent(isolated_budget, monkeypatch):
+    monkeypatch.setattr(settings, 'hosted_serpapi_daily_budget', 100)
+    def attempt(_):
+        try:
+            claim_provider_attempt('account:first')
+            return True
+        except DailySearchLimit:
+            return False
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        assert sum(pool.map(attempt, range(30))) == 20
+    assert search_budget.user_remaining('account:first') == 0
+    assert search_budget.user_remaining('account:second') == 20
+    claim_provider_attempt('account:second')
+    assert search_budget.user_remaining('account:second') == 19
+    # A fresh session factory represents a restarted process against the same database.
+    monkeypatch.setattr(search_budget, 'Session', sessionmaker(isolated_budget[0]))
+    with pytest.raises(DailySearchLimit): claim_provider_attempt('account:first')
+
+
+def test_global_rejection_rolls_back_user_charge(isolated_budget, monkeypatch):
+    monkeypatch.setattr(settings, 'hosted_serpapi_daily_budget', 1)
+    claim_provider_attempt('account:first')
+    with pytest.raises(DailySearchLimit): claim_provider_attempt('account:second')
+    assert search_budget.user_remaining('account:second') == 20
+
+
+def test_user_reset_is_midnight_ist(isolated_budget, monkeypatch):
+    monkeypatch.setattr(settings, 'hosted_serpapi_daily_budget', 100)
+    tick = [datetime(2026, 10, 9, 18, 29, 59, tzinfo=timezone.utc)]
+    monkeypatch.setattr(search_budget, 'datetime', SimpleNamespace(now=lambda zone: tick[0].astimezone(zone)))
+    for _ in range(20): claim_provider_attempt('account:first')
+    with pytest.raises(DailySearchLimit): claim_provider_attempt('account:first')
+    tick[0] = datetime(2026, 10, 9, 18, 30, tzinfo=timezone.utc)
+    assert search_budget.user_remaining('account:first') == 20
+    claim_provider_attempt('account:first')
+    assert search_budget.user_remaining('account:first') == 19
 
 
 def test_concurrent_attempts_cannot_exceed_shared_daily_limit(isolated_budget, monkeypatch):

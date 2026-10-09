@@ -219,9 +219,9 @@ def score_report(data, papers, patents, web, queries, warnings):
     return report
 
 
-def provider_search(client, engine, *, personal=False, **params):
+def provider_search(client, engine, *, personal=False, subject=None, **params):
     if settings.live_serpapi_enabled and not personal:
-        try:claim_provider_attempt()
+        try:claim_provider_attempt(subject) if subject else claim_provider_attempt()
         except DailySearchLimit:raise ProviderCapacityError() from None
     try:
         result = dict(client.search({'engine':engine,**params}))
@@ -239,7 +239,7 @@ def provider_search(client, engine, *, personal=False, **params):
     return result
 
 
-def run_novelty_job(report_id, credentials=None):
+def run_novelty_job(report_id, credentials=None, subject=None):
     with Session() as db:
         row = db.get(NoveltyReport, report_id)
         if not row: return
@@ -251,7 +251,7 @@ def run_novelty_job(report_id, credentials=None):
     def search(engine, **params):
         if provider_halted[0] or provider_calls[0]>=8: raise ProviderCapacityError()
         provider_calls[0]+=1
-        try:return provider_search(client,engine,personal=bool(credentials),**params)
+        try:return provider_search(client,engine,personal=bool(credentials),subject=subject,**params)
         except ProviderCapacityError:
             provider_halted[0]=True
             raise

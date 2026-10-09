@@ -57,6 +57,13 @@ class GroqDailyBudget(Base):
     calls_used: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class SerpApiUserBudget(Base):
+    __tablename__ = 'serpapi_user_budget'
+    subject: Mapped[str] = mapped_column(String(72), primary_key=True)
+    day_ist: Mapped[str] = mapped_column(String(10), primary_key=True)
+    calls_used: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class NoveltyWorkspace(Base):
     __tablename__ = 'novelty_workspaces'
     report_id: Mapped[str] = mapped_column(id_type, primary_key=True)

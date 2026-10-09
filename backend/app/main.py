@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.config import SAVED_REPORT_RETENTION_DAYS, settings
 from app.provider_credentials import credentials_for
-from app.search_budget import hosted_remaining
+from app.search_budget import hosted_remaining, user_subject, user_remaining, IST
 from app.pdf_review import extract_pdf, PdfBusy, PdfUnavailable
 from app.db.session import Session, engine
 from app.db.repositories import active, cached
@@ -264,6 +264,16 @@ def health():
     return {'status': 'ok', 'database': 'connected', 'live_serpapi_enabled': settings.live_serpapi_enabled}
 
 
+@app.get('/api/search-allowance')
+def search_allowance(request: Request):
+    subject = user_subject(request)
+    tomorrow = datetime.now(IST).date() + timedelta(days=1)
+    return {'limit': 20, 'remaining': user_remaining(subject),
+            'resets_at': datetime.combine(tomorrow, datetime.min.time(), tzinfo=IST).isoformat(),
+            'identity': 'account' if subject.startswith('account:') else 'shared_ip',
+            'shared_remaining': hosted_remaining()}
+
+
 @app.get('/api/demo-status')
 def novelty_demo_status():
     configured=hosted_search_configured()
@@ -325,6 +335,7 @@ def create_novelty_analysis(data:NoveltyInput, request:Request, background:Backg
 def start_novelty_analysis(data, request, background, credentials, original_fingerprint=None):
     if not credentials and not hosted_search_configured():
         return error(503,'HOSTED_DEMO_UNAVAILABLE','Live analysis is not configured. Use the sample or your own provider key.')
+    subject = user_subject(request) if not credentials else None
     normalized=data.model_dump(exclude={'refresh','save_report','is_public'})
     # Unlisted requests never disclose another user's cached report or queued ID.
     fingerprint=original_fingerprint or hashlib.sha256(json.dumps({'input':normalized,'is_public':data.is_public,
@@ -352,9 +363,8 @@ def start_novelty_analysis(data, request, background, credentials, original_fing
             if len(hits[key])>=settings.rate_limit_per_hour:
                 return error(429,'RATE_LIMIT','Personal search limit reached. Try again in one hour.')
         else:
-            ip_count=db.scalar(select(func.count()).select_from(NoveltyUsage).where(NoveltyUsage.day_utc==day,NoveltyUsage.ip_hash==ip_hash,NoveltyUsage.calls_reserved>0)) or 0
-            if ip_count>=settings.hosted_reports_per_ip_per_day:
-                return error(429,'HOSTED_USER_LIMIT','Your hosted daily report limit is reached. Use your own provider key or try tomorrow.')
+            if user_remaining(subject) < 1:
+                return error(429,'DAILY_USER_LIMIT','Your 20 daily searches are used. Enter your own SerpApi key or wait until midnight IST.')
         budget=None
         if not credentials:
             budget=db.get(NoveltyDailyBudget,day)
@@ -372,7 +382,7 @@ def start_novelty_analysis(data, request, background, credentials, original_fing
         db.add(NoveltyUsage(day_utc=day,ip_hash=ip_hash,analysis_id=ident,calls_reserved=0 if credentials else 8,calls_used=0,status='reserved'))
         if budget:budget.calls_reserved+=8
         if credentials:hits[key].append(current)
-    background.add_task(run_novelty_job,ident,credentials)
+    background.add_task(run_novelty_job,ident,credentials,subject)
     ai_mode='enabled' if (bool(credentials.groq.get_secret_value()) if credentials else settings.groq_enabled and bool(settings.groq_api_key.get_secret_value())) else 'unavailable'
     return JSONResponse(status_code=202,content={'id':ident,'status':'queued','cached':False,'credential_mode':'personal' if credentials else 'hosted','ai_enrichment':ai_mode,'report_url':f'/reports/{ident}',**tokens})
 
@@ -585,6 +595,7 @@ def set_novelty_watch(analysis_id:UUID, item:WatchInput, request:Request):
 @app.post('/api/analyses')
 def create_analysis(data: AnalysisInput, request: Request, background: BackgroundTasks):
     credentials=credentials_for(request)
+    subject=user_subject(request) if settings.live_serpapi_enabled and not credentials else None
     # Keep demo data attached to its actual synthetic scenario, never arbitrary markets.
     if not settings.live_serpapi_enabled and not credentials and (data.business_category.casefold() != 'coworking space' or data.city.casefold() != 'pune' or data.country != 'India' or {k.casefold() for k in data.keywords} != {'coworking pune', 'shared office pune', 'flexible office pune'}):
         return error(422, 'FIXTURE_SCENARIO_ONLY', 'Sample mode supports the Pune coworking example. Enable live search on the backend for other markets.')
@@ -597,6 +608,8 @@ def create_analysis(data: AnalysisInput, request: Request, background: Backgroun
         previous = cached(db, fingerprint) if not data.refresh else None
         if previous:
             return {'id': previous.id, 'status': 'complete', 'cached': True, 'report_url': f'/reports/{previous.id}'}
+        if subject and user_remaining(subject)<1:
+            return error(429,'DAILY_USER_LIMIT','Your 20 daily searches are used. Enter your own SerpApi key or wait until midnight IST.')
         if not credentials and settings.live_serpapi_enabled and hosted_remaining()<1:
             return error(429,'SHARED_QUOTA_EXHAUSTED','Shared search allowance exhausted. Use your own keys or wait for the UTC reset.')
         current = time.monotonic()
@@ -619,7 +632,7 @@ def create_analysis(data: AnalysisInput, request: Request, background: Backgroun
             running = active(db, fingerprint)
             return error(409, 'ANALYSIS_RUNNING', 'This analysis is already running.', {'id': running.id} if running else {})
         hits[key].append(current)
-        background.add_task(run_job, row.id, data, credentials)
+        background.add_task(run_job, row.id, data, credentials, subject)
         return JSONResponse(status_code=202, content={'id': row.id, 'status': 'queued', 'cached': False, 'report_url': f'/reports/{row.id}'})
 
 
@@ -740,6 +753,9 @@ def create_research(analysis_id: UUID, data: ResearchInput, request: Request, ba
                 return {'id':previous.id,'cached':previous.status=='complete'}
         if db.scalar(select(NoveltyReport.id).where(NoveltyReport.status.in_(['queued','running'])).limit(1)) or db.scalar(select(Signal.id).where(Signal.signal_type=='research_extension',Signal.status.in_(['queued','running'])).limit(1)) or db.scalar(select(Analysis.id).where(Analysis.status.in_(['queued','running'])).limit(1)):
             return error(429,'SERVER_BUSY','Another search is running. Open its saved run or try again shortly.')
+        subject=user_subject(request) if mode=='live' and not credentials else None
+        if subject and user_remaining(subject)<1:
+            return error(429,'DAILY_USER_LIMIT','Your 20 daily searches are used. Enter your own SerpApi key or wait until midnight IST.')
         if mode=='live' and not credentials and hosted_remaining()<1:
             return error(429,'SHARED_QUOTA_EXHAUSTED','Shared search allowance exhausted. Use your own keys or wait for the UTC reset.')
         current = time.monotonic()
@@ -758,5 +774,5 @@ def create_research(analysis_id: UUID, data: ResearchInput, request: Request, ba
         db.add(row)
         db.flush()
         hits[key].append(current)
-        background.add_task(run_research,row.id,data.tool,plans,mode,payload,credentials)
+        background.add_task(run_research,row.id,data.tool,plans,mode,payload,credentials,subject)
         return {'id':row.id,'cached':False}

@@ -16,8 +16,8 @@ logger = logging.getLogger('market.jobs')
 ENGINES = {'maps': 'google_maps', 'reviews': 'google_maps_reviews', 'trends': 'google_trends', 'news': 'google_news', 'ads': 'google_ads_transparency_center'}
 
 
-async def run_job(analysis_id, request: AnalysisInput, credentials=None):
-    client = SearchClient(credentials=credentials)
+async def run_job(analysis_id, request: AnalysisInput, credentials=None, subject=None):
+    client = SearchClient(credentials=credentials, subject=subject)
     sections = {k: {'status': 'pending', 'count': 0} for k in ENGINES}
     warnings = [] if client.live else ['Sample report: all observations are synthetic fixtures, not live market evidence. Fixture data describes only the Pune coworking example.']
 

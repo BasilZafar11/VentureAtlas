@@ -10,6 +10,13 @@ afterEach(()=>{if(promptListener)window.removeEventListener('provider-key-prompt
 function acceptPrompt(accepted=true){promptListener=()=>{if(accepted)setPersonalKeys(credentials);closeKeyPrompt(accepted);};window.addEventListener('provider-key-prompt',promptListener);}
 
 describe('temporary provider credentials',()=>{
+  it('offers a personal key when this user exhausts the daily allowance',async()=>{
+    vi.mocked(fetch).mockResolvedValueOnce(json({error:{code:'DAILY_USER_LIMIT'}},429)).mockResolvedValueOnce(json({id:'queued'}));
+    acceptPrompt();
+    const response=await providerFetch('/api/analyses',{method:'POST',body:'{}'});
+    expect(response.ok).toBe(true);
+    expect(new Headers(vi.mocked(fetch).mock.calls[1][1]!.headers).get('X-SerpApi-Key')).toBe(credentials.serpapi);
+  });
   it('applies current personal AI consent when refreshing a report',async()=>{
     setPersonalKeys(credentials);
     await providerFetch('/api/novelty/analyses/report/refresh',{method:'POST'});
@@ -87,7 +94,8 @@ describe('temporary provider credentials',()=>{
   it('rotates with the explicitly supplied owner and preserves fresh links when storage is blocked',async()=>{
     const previous=location.href;
     history.replaceState(history.state,'','/reports/rotation-test#owner=revoked-owner');
-    const store=vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new DOMException('Blocked','SecurityError');});
+    const store=vi.fn(()=>{throw new DOMException('Blocked','SecurityError');});
+    vi.stubGlobal('localStorage',{getItem:vi.fn(()=>null),setItem:store,removeItem:vi.fn(),clear:vi.fn()});
     const change=vi.fn();window.addEventListener('workspace-capabilities-changed',change);
     vi.mocked(fetch).mockResolvedValueOnce(json({owner_token:'new-owner',review_token:'new-reviewer',workspace:{comments:[],alerts:[],watched:false,latest_report_id:null}}));
     try{

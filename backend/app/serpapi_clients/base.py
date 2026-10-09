@@ -16,7 +16,8 @@ FIXTURES = Path(__file__).resolve().parents[1] / 'fixtures'
 
 
 class SearchClient:
-    def __init__(self, live=None, credentials=None, max_attempts=30):
+    def __init__(self, live=None, credentials=None, max_attempts=30, subject=None):
+        self.subject = subject
         self.credentials = credentials
         self.live = settings.live_serpapi_enabled if live is None else live
         if credentials:
@@ -76,7 +77,7 @@ class SearchClient:
                     self.halted = True
                     raise EngineError('ALLOWANCE_UNAVAILABLE')
                 if not self.credentials:
-                    claim_provider_attempt()
+                    claim_provider_attempt(self.subject) if self.subject else claim_provider_attempt()
                 self.provider_attempts[engine] += 1
             result = dict(client.search({'engine': engine, **params}))
             error = str(result.get('error', ''))

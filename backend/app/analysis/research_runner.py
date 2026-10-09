@@ -17,8 +17,8 @@ def persist(job_id, status, payload):
         row.status, row.payload = status, payload
 
 
-async def collect(job_id, tool, plans, report_mode, initial, credentials=None):
-    client = SearchClient(live=report_mode == 'live', credentials=credentials, max_attempts=9)
+async def collect(job_id, tool, plans, report_mode, initial, credentials=None, subject=None):
+    client = SearchClient(live=report_mode == 'live', credentials=credentials, max_attempts=9, subject=subject)
     payload = {**initial, 'batches':[], 'usage':client.usage(), 'completed_requests':0}
     try:
         persist(job_id,'running',payload)
@@ -53,8 +53,8 @@ async def collect(job_id, tool, plans, report_mode, initial, credentials=None):
         persist(job_id,'failed',payload)
 
 
-def run_research(job_id, tool, plans, mode, payload, credentials=None):
+def run_research(job_id, tool, plans, mode, payload, credentials=None, subject=None):
     try:
-        asyncio.run(collect(job_id,tool,plans,mode,payload,credentials))
+        asyncio.run(collect(job_id,tool,plans,mode,payload,credentials,subject))
     except Exception:
         logger.warning('Research job did not finish; saved results may be incomplete.')
