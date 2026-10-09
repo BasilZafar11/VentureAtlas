@@ -1,12 +1,11 @@
-# ResearchScope
+# VentureAtlas
 
-ResearchScope helps researchers evaluate novelty, uncover prior work, verify claims, compare evidence, and design credible studies in a traceable workspace. The home URL opens ResearchScope; retained market tools are available at `/market`.
+VentureAtlas helps founders research a business category in a city, inspect market evidence, and turn assumptions into validation plans. VentureAtlas is the active app.
 
 ## Available features
 
 The ResearchScope research workspace is available at `/research-scope`, with its prepared report at `/research-scope/reports/sample`. It retains the paper/patent novelty workflow and adds ten integrity tools for publication updates, opposing findings, citation support, question precision, statistical planning, reproducibility packages, artifact audits, extraction reconciliation, multilingual discovery, and sensitive-data readiness. Integrity records are exportable and can be explicitly shared through the research workspace; Crossref metadata requests run only on explicit user actions.
 
-## Retained market tools
 
 Market reports combine competitor listings, review topics, news, trends and advertising evidence, with source links, evidence completeness, relevance review and planning tools. The existing research workspace supports directions, forums, autocomplete, events, jobs, shopping, hotels, flights, images and Scholar.
 
@@ -23,9 +22,11 @@ Completed reports now open a decision workspace with ten additional tools:
 9. Experiment prioritization within cost/time budgets, with observed results.
 10. Evidence-backed editable pitch with saved experiment results, Markdown download and browser print/PDF.
 
+
 ## Submission and release
 
-[Public repository](https://github.com/BasilZafar11/ResearchScope)
+[Public repository](https://github.com/BasilZafar11/VentureAtlas)
+
 
 ## Run locally
 

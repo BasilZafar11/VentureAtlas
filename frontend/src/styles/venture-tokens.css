@@ -1,0 +1,11 @@
+:root {
+  --venture-paper: oklch(98% .008 85);
+  --venture-surface: oklch(96% .012 85);
+  --venture-ink: oklch(29% .065 255);
+  --venture-muted: oklch(46% .025 255);
+  --venture-line: oklch(85% .016 85);
+  --venture-accent: oklch(39% .09 255);
+  --venture-accent-ink: oklch(99% .003 85);
+  --venture-display: 'Newsreader Variable', Georgia, serif;
+  --venture-body: 'DM Sans Variable', 'Segoe UI', sans-serif;
+}

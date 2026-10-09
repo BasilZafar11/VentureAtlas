@@ -10,6 +10,16 @@ afterEach(()=>{if(promptListener)window.removeEventListener('provider-key-prompt
 function acceptPrompt(accepted=true){promptListener=()=>{if(accepted)setPersonalKeys(credentials);closeKeyPrompt(accepted);};window.addEventListener('provider-key-prompt',promptListener);}
 
 describe('temporary provider credentials',()=>{
+  it('uses account identity only on own paid and allowance routes',async()=>{
+    vi.stubGlobal('sessionStorage',{getItem:vi.fn(()=>JSON.stringify({token:'dummy-session',username:'founder'}))});
+    for(const path of ['/api/analyses','/api/search-allowance','https://unrelated.example/api/analyses']){
+      await providerFetch(path,{method:path.endsWith('allowance')?'GET':'POST',body:path.endsWith('allowance')?undefined:'{}'});
+    }
+    const headers=vi.mocked(fetch).mock.calls.map(([,options])=>new Headers(options!.headers));
+    expect(headers[0].get('Authorization')).toBe('Bearer dummy-session');
+    expect(headers[1].get('Authorization')).toBe('Bearer dummy-session');
+    expect(headers[2].has('Authorization')).toBe(false);
+  });
   it('offers a personal key when this user exhausts the daily allowance',async()=>{
     vi.mocked(fetch).mockResolvedValueOnce(json({error:{code:'DAILY_USER_LIMIT'}},429)).mockResolvedValueOnce(json({id:'queued'}));
     acceptPrompt();

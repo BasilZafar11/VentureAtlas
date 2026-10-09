@@ -81,6 +81,28 @@ def test_user_reset_is_midnight_ist(isolated_budget, monkeypatch):
     assert search_budget.user_remaining('account:first') == 19
 
 
+def test_allowance_endpoint_uses_authenticated_account_and_rejects_revoked_session(client, monkeypatch):
+    from datetime import timedelta
+    from app.models.venture import VentureAccount, VentureSession
+    from app.models.database import now
+    monkeypatch.setattr(settings, 'ip_hash_secret', SecretStr('dummy-stable-test-secret-at-least-32-characters'))
+    token = 'dummy-session-token'
+    with Session.begin() as db:
+        user = VentureAccount(username='budget-user', password_hash='unused-test-hash')
+        db.add(user); db.flush(); ident = user.id
+        db.add(VentureSession(token_hash=hashlib.sha256(token.encode()).hexdigest(), account_id=ident,
+                              expires_at=now()+timedelta(days=1)))
+    claim_provider_attempt('account:' + ident)
+    own = client.get('/api/search-allowance', headers={'Authorization': 'Bearer ' + token})
+    assert own.status_code == 200
+    assert own.json()['identity'] == 'account' and own.json()['remaining'] == 19
+    guest = client.get('/api/search-allowance').json()
+    assert guest['identity'] == 'shared_ip' and guest['remaining'] == 20
+    assert guest['resets_at'].endswith('00:00:00+05:30')
+    assert client.delete('/api/venture/sessions/current', headers={'Authorization': 'Bearer ' + token}).status_code == 200
+    assert client.get('/api/search-allowance', headers={'Authorization': 'Bearer ' + token}).status_code == 401
+
+
 def test_concurrent_attempts_cannot_exceed_shared_daily_limit(isolated_budget, monkeypatch):
     tick = datetime(2026, 10, 9, 12, 0, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(search_budget, 'datetime', SimpleNamespace(now=lambda zone: tick))
