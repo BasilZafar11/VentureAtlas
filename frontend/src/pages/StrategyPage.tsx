@@ -13,6 +13,10 @@ import {Regulations} from '../components/strategy/Regulations';
 import {ExperimentPriorities} from '../components/strategy/ExperimentPriorities';
 import {VenturePitch} from '../components/strategy/VenturePitch';
 import '../styles/strategy.css';
+import type {Report} from '../types/analysis';
+export function StrategyTool({report:r,tool:selected}:{report:Report;tool:string}){
+ return selected==='conflicts'?<Conflicts report={r}/>:selected==='gaps'?<ResearchGaps report={r}/>:selected==='personas'?<Personas report={r}/>:selected==='team'?<TeamWorkspace report={r}/>:selected==='changes'?<MarketChanges report={r}/>:selected==='offers'?<Offers report={r}/>:selected==='regulations'?<Regulations report={r}/>:selected==='experiments'?<ExperimentPriorities report={r}/>:selected==='pitch'?<VenturePitch report={r}/>:<EvidenceGraph report={r}/>;
+}
 export function StrategyPage(){
  const {id=''}=useParams(),[params,setParams]=useSearchParams();
  const selected=params.get('tool')||'graph';
