@@ -63,4 +63,16 @@ npm run build
 
 Personal planning records stay in this browser; JSON/Markdown exports provide a copy. Clearing browser storage loses these records. Authenticated team data is stored on the backend. A private team workspace does not change the source market report's existing visibility.
 
-This is a local prototype. Live provider integration and hosted deployment have not been verified for this change. Team accounts have no password reset, email invitation or SSO; hosted operation requires HTTPS. Regulatory entries and persona hypotheses require user verification. Search indicators do not predict business success.
+## Hosted search allowance
+
+Each signed-in account has 20 hosted SerpApi attempts per day, resetting at midnight IST. Guests on the same client IP share one allowance. Counters are stored in the database and survive deployments. Retries count as attempts; cached reports do not. All paid search routes use the same counter.
+
+`HOSTED_SERPAPI_DAILY_BUDGET=20` is a separate shared safety cap for the project's limited credits. It can run out before a user reaches their allowance. The interface offers a personal SerpApi key when either allowance is exhausted. Personal keys remain in page memory and bypass the hosted counters; provider charges apply to that user's account.
+
+## Render and Vercel release
+
+Deploy the same `main` revision to both services. Render needs `LIVE_SERPAPI_ENABLED=true`, its existing `SERPAPI_KEY` and `DATABASE_URL`, a stable `IP_HASH_SECRET` of at least 32 characters, and `CORS_ORIGINS=["https://ventureatlas-rho.vercel.app"]`. Keep the shared credit cap at 20. The Docker startup command runs Alembic migrations before starting the API. Vercel uses root directory `frontend` and `VITE_API_URL=https://ventureatlas-api.onrender.com`.
+
+Verify `/health`, then CORS preflights for `DELETE /api/venture/sessions/current` with `Authorization` and `POST /api/analyses` with `X-SerpApi-Key`. These checks use no SerpApi credits. A Git push does not change environment values on a manually configured Render service.
+
+Team accounts have no password reset, email invitation or SSO; hosted operation requires HTTPS. Regulatory entries and persona hypotheses require user verification. Search indicators do not predict business success.

@@ -61,7 +61,6 @@ def finish_novelty_usage(db, analysis_id, calls_used, status):
 def hosted_search_configured():
     return (settings.live_serpapi_enabled and bool(settings.serpapi_key.get_secret_value())
             and len(settings.ip_hash_secret.get_secret_value().encode())>=32
-            and settings.hosted_reports_per_ip_per_day>0
             and settings.hosted_serpapi_daily_budget>settings.hosted_serpapi_reserve>=0)
 
 

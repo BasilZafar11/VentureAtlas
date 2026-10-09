@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     groq_model: str = 'openai/gpt-oss-20b'
     hosted_groq_daily_budget: int = 20
     ip_hash_secret: SecretStr = SecretStr('')
-    hosted_reports_per_ip_per_day: int = 2
     hosted_serpapi_daily_budget: int = 20
     hosted_serpapi_reserve: int = 0
     live_serpapi_enabled: bool = False
